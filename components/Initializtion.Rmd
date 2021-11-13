@@ -1,0 +1,49 @@
+---
+title: "Setting Up A Graph Landscape"
+output: html_notebook
+---
+
+This notebook is designed to help in setting up what I call a "GraphedLandscape", e.g., one in which we overlay topologies onto so that we can examine if intervening (between site) or localized (at site) variables are contributing to the observed distribution of genetic variation we see as represented as a Population Graph.
+
+```{r setup, include=FALSE}
+library( igraph )
+library( gstudio )
+library( popgraph  )
+library( tidyverse )
+```
+
+The data I'm going to use for this is the `scaled_rural` data set from the dogwood gradient project.
+
+
+I'm going to clean it up a bit, though I will assume that cGD is present and represents the only edges in the topology.
+
+```{r}
+read_csv( "data/rural.csv" ) %>%
+  select(FROM, TO, cGD,
+         -sqrtcGD, -lncGD, -invcGD, - scGD, -ssqrtcGD, -slncGD, -sinvcGD,
+         everything() ) -> raw_data
+```
+
+I'm going to make a popgraph from this just so I can look at it.  I am assuming that there are no isolated nodes (though they'd be irrelevant to the anlysis anyways because there is nothing `between` them to examine).
+
+```{r}
+nodes <- sort( unique( c( raw_data$FROM, raw_data$TO ) ))
+A <- matrix( 0, nrow = length( nodes ), ncol = length( nodes ) )
+rownames(A) <- colnames(A) <- nodes 
+
+
+for( i in seq(1,nrow(raw_data )) ){ 
+  idx1 <- which( nodes == raw_data$FROM[i] )
+  idx2 <- which( nodes == raw_data$TO[i] )
+  
+  # assigned for both above and below diagonal (symnmetric)
+  A[idx2, idx1] <- A[idx1,idx2] <- raw_data$cGD[i]
+}
+
+graph <- graph_from_adjacency_matrix( A, mode="undirected", weighted=TRUE)
+plot( graph )
+```
+
+OK, so of the `r length(V(graph)$name)` mother trees with `r length( E(graph) )` edges
+
+

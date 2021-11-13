@@ -1,0 +1,102 @@
+---
+title: "Graphed Landscapes: An Evolving Machine-Learning Approach to Fitting Resistance Surfaces in Landscape Genetics"
+description: |
+  This f
+author:
+  - name: Rodney Dyer 
+    url: https://rodneydyer.com
+    affiliation: |
+      Center for Environmental Studies
+      Virginia Commonwealth University 
+      Richmond, Virginia 23284
+    affiliation_url: https://ces.vcu.edu
+    orcid_id: 0000-0003-4707-3453
+  - name: Jane Remfert
+    affiliation: |
+      Center for Life Science Education
+      Virginia Commonwealth University 
+      Richmond, Virginia 23284
+    affiliation_url: https://clse.vcu.edu
+date: "`r Sys.Date()`"
+output: distill::distill_article
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set( echo = FALSE )
+library( raster )
+library( ggplot2 )
+library( gstudio )
+library( popgraph )
+library( tidyverse )
+
+```
+
+
+
+# Introduction
+
+A central goal in landscape genetic studies is to identify the set existing features that either promote or impede the movement of individuals or gametes across the landscape (ref).  Understanding of how landscape influences movement or connectivity can be use either retrospectively in helping reconstruct historical patterns of movement or (increasingly) proactively to help aid in the management and design of human altered landscapes that may minimize the anthropocentric footprint on existing flora and fauna.  Independent of the 
+
+
+The spatial distribution of genetic structure, $G$, is the result of both historical and ongoing population genetic and demographic processes.  For simplicity, we will assume that the spatial and temporal scale is such that phylogeographic patterns either do not apply or they have already been regressed out of the model (see @DyerEtAl2010 for how to do this).  Several metrics have been recommended for characterizing genetic structure but for our purposes, we will stick with a method based upon actual genetic covarnace defined within PopulationGraphs (@DyerNason2004, @Dyer2015), rather than estimates of pairwise distance or structure due to observed differences in statistical power.
+
+A PopulationGraph is a topology based upon conditional genetic covariance that can be represented as a graph, $G$, which maps disjoint sets of vertices ($V$) and edges ($E; G = (V,E)$).  Nodes in this context spatial sepresent sampling locales that can either be populations of adults on the landscape (e.g., @Araptus) or as sampled pollen pools sampled from individual seed trees (e.g., @Cornus).  Properties of the nodes are based soley upon its spatial location and the set of genotypes surveyed.  The edge set, $E$, defines the *conditional genetic covariance* topology based upon multilocus genetic covariance.  Each edge has a *characteristic length* defined by the strength of covariance for the two nodes it connects. The overall topology of the network defines conditional genetic distance, based upon the summation of shortest paths that connect individual nodes.
+
+Several features on a landscape can influence movement patterns and connectivity and thus may yield identifiable changes in genetic covariance.  These may be features that are at the location of the nodes in the topology—a seed tree with a larger floral display may be able to attract pollinators from a larger distance than those with smaller floral displays—or represent conditions separating individual locales.  Classic models of Isolation-By-Distance due to limitations in dispersal would result in a proportional relationship between inter-node physical separation and the shortest path through the Population Graph.  In addition to physical separation, the quality and composition of intervening habitat may have differential impact on connectivity, which would create patterns of genetic covariance in the graph that align with on-the-ground ecological heterogeneity rather than euclidean separation.  Moreover, sources of vicariance would result in topological paths through the graph that either circumnavigate the physical obstructions to direct exchange of migrants, or create disjoint subgroups within the topology.  Therefore, the task at hand for much of the landscape genetic analysis revolves around finding the subset of spatial, geographic, and ecological features that best explain the observed distribution of standing structure.  As a functional form, these terms can be denoted as:
+
+
+\[
+cGD_{i,j} \sim \delta_{i,j} + \ell_{i} + \gamma_{i,j} + \epsilon_{i,j,k}
+\]
+
+where $cGD_{i,j}$ is a measure of conditional genetic covariance between the $i^{th}$ and $j^{th}$ locale, $\delta$ mesures classic euclidean distance under a model of isolation by distance between the two sites, $\ell$ contains the set of features measured at the sampling locale (e.g. features that attract), $\gamma$ contains features between sites that serve to modify connectivity, and $\epsilon$ is the residual variation not accounted for by the model.
+
+One common approach to fitting these models is that of using mixed-effects regression approaches such as a gravity model (see for example @MurphyEtAl2010, @DiLeoEtAl2014) and then iteratively using a model-fitting procedures.  This methodology is essentially a process of combinatorial optimization whereby successive predictor variables are put into the model based upon maximizing covariance with variation yet to be explained.  This *stepwise* approach proceeds until stopping criteria, often defined by AIC or BIC styled estimators, identify the best model(s) to consider.  While this method is often efficient, there are well known edge cases where the criteria stopping criteria may not identify unique solution, essentially the stepwise approach may produce locally optimized solutions but not globally optimized ones.  
+
+    - Lukacs PM, Burnham KP, Anderson DR. Model selection bias and Freedman’s paradox. Ann Inst Stat Math. 2010;62:117–125. doi: 10.1007/s10463-009-0234-4. [CrossRef] [Google Scholar] [Ref list] "...has been described that, when the number of samples in the training data is small, making inference from a single best model, e.g., produced with stepwise regression, leads to the inclusion of noise variables."
+
+
+The likelihood of finding localized, suboptimal, peaks may increase with the number of fixed and random effect predictor variables that are being entered into the stepwise optimization procedure, as well as any non-independence in the underlying data.  This is a critical consideration for landscape genetic studies due to the potential size of predictor sets.  Both at-site ($\ell$ features) and between-site ($\gamma$ features) components may have several representations of each individual feature.  For example, consider the amount of impervious surface measured from a raseter whose resolution is 10m as a potential feature of interest that may be impacting connectivity for a set of seed trees.  For the at-site measurements, pollinators may be keying in on impervious surfaces within 10m, 20m, 50m, or 100m from the central tree.  Without *a priori* knowledge, one would either have to create these four predictors and allow variable selection optimization to choose the one best representing unexplained model variance, or enter the radial distance on the impervious surface raster as an additional continuous predictor variable itself into the model.  
+
+Developing the set of between site features for these models are even more complicated and lead to a proliferation of predictor variables.  First, just because our raster has a 10m resolution, there is no biological reason to believe that the movement process is keying in on the landscape with a 10m pixel size.  While we cannot decrease the resolution, we can aggregate pixels to create more granular representations of the landscape (e.g, 10m, 20m, and 50m grid sizes).  Next, the relative resistance imparted by this feature and represented within each raster is also unknown.  Indeed, this is often the main thrust of the entire study!  An unbiased approach to this would be to examine a range of values representing relative movment costs as a in/out ratio (e.g., 1:2, 1:5, 1:10, 1:20, 1:100) as well as the symmetric and opposite situation where movement is preferred outside the feature rather than in it (e.g., 100:1, 20:1, 10:1, 5:1, 2:1).  Finally, the underlying model by which movement takes place is largely unknown.  The literature has shown that for some features, genetic structure is best explained by models whose movement is optimized for shortest paths, whereas others may take a more circuitous route across the landscape weighed by relative lengths (e.g., the so-called circuit-theory movement model).  In some of our own research, we've found that best fit models describing insect-mediated pollen movement may be different for pixel size, relative resistance, and movement model when comparing understory composition to that measured in the forest canopy (Remfert & Dyer, In Prep).  This suggests that one may require 3 pixel sizes, 10 relative resistance estimators, and 2 movement models, producing 60 $\gamma$ unique predictors for [Eq. 1] for each ecological features being examined.  Multivariate resistance surfaces, which incorporate several features simultaneously would increase combinatory complexity even further.
+
+In this paper, we describe a method using a hybrid machine
+
+
+# Methods
+
+In this manuscript we describe a genetic algorithm approach for model selection based upon either saturated or non-saturated connection topologies.
+
+
+## Genetic Algorithms
+
+A genetic algorithm is based upon biological fitness and natural selection.  Key components of a model can be encoded into a pseudo-chromosome and treated as a single representation of a model.  A large population of these model specifications may be iterated across generations.  At each generation, both mutation occurs (e.g., changing of the parameters along the individual chromosome) and crossing over (e.g., exchanging portions of a chromosome with another individual) produce offspring.  At each generation, relative fitness is evaluated based upon an objective fitness function providing differential reproductive success of individual chromosomes.  Across generations, both mutation and recombination allow the breadth of the search space to be examined concurrently without the potential for getting trapped at localized optima.  
+
+Here we are going to define the 
+
+## Simulation Results
+
+
+
+
+## Example Data - *Cornus florida*
+
+
+
+# Discussion
+
+On-the-fly estimation of distances on a surface in real-time would help.
+
+
+
+Ideally, these two movement models define the two ends of a spectrum, one with the single shortest path across the landscape and the other with the complete set of all potential paths. Genetic connectivity is most likely made up of movement that comprises a subset of all models.  At present, we are not able to quantify subsets of paths for analysis, though some work has been done on constraining paths within individual corridors.  What would be helpful is a method for being able to ordinate all of the paths extracted from a Circuit Theory model such that subsets of paths may be utilized.
+
+
+
+
+# Acknowledgements
+
+
+
+
+# Citations
