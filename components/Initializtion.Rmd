@@ -1,36 +1,33 @@
 ---
-title: "Setting Up A Graph Landscape"
+title: "Setting Up A Graphed Landscape"
 output: html_notebook
 ---
 
 This notebook is designed to help in setting up what I call a "GraphedLandscape", e.g., one in which we overlay topologies onto so that we can examine if intervening (between site) or localized (at site) variables are contributing to the observed distribution of genetic variation we see as represented as a Population Graph.
 
 ```{r setup, include=FALSE}
+knitr::opts_chunk$set( echo = FALSE )
 library( igraph )
 library( gstudio )
 library( popgraph  )
 library( tidyverse )
 ```
 
-The data I'm going to use for this is the `scaled_rural` data set from the dogwood gradient project.
-
-
-I'm going to clean it up a bit, though I will assume that cGD is present and represents the only edges in the topology.
+The data I'm going to use for this is the `scaled_rural` data set from the dogwood gradient project.  I'm going to clean it up a bit, though I will assume that cGD is present and represents the only edges in the topology.
 
 ```{r}
-read_csv( "data/rural.csv" ) %>%
-  select(FROM, TO, cGD,
-         -sqrtcGD, -lncGD, -invcGD, - scGD, -ssqrtcGD, -slncGD, -sinvcGD,
+suppressMessages( read_csv( "../data/rural.csv" )) %>%
+  select(FROM, TO, cGD, Euclidean = DISTft,
          everything() ) -> raw_data
+raw_data <- raw_data[,-(5:13)]
 ```
 
-I'm going to make a popgraph from this just so I can look at it.  I am assuming that there are no isolated nodes (though they'd be irrelevant to the anlysis anyways because there is nothing `between` them to examine).
+First, I'm going to make a popgraph from this just so I can look at it.  I am assuming that there are no isolated nodes (though they'd be irrelevant to the analysis anyways because there is nothing `between` them to examine).
 
 ```{r}
 nodes <- sort( unique( c( raw_data$FROM, raw_data$TO ) ))
 A <- matrix( 0, nrow = length( nodes ), ncol = length( nodes ) )
 rownames(A) <- colnames(A) <- nodes 
-
 
 for( i in seq(1,nrow(raw_data )) ){ 
   idx1 <- which( nodes == raw_data$FROM[i] )
@@ -41,9 +38,44 @@ for( i in seq(1,nrow(raw_data )) ){
 }
 
 graph <- graph_from_adjacency_matrix( A, mode="undirected", weighted=TRUE)
+numNodes <- length( igraph::V(graph) )
+numEdges <- length( igraph::E(graph) )
 plot( graph )
 ```
 
-OK, so of the `r length(V(graph)$name)` mother trees with `r length( E(graph) )` edges
+OK, so of the `r numNodes` mother trees with `r numEdges` edges
+
+In looking at the data that is found in the Gravity Laboratory examples, there does seem to be a divergence between what was presented there and the data you've shown me from your own data.  Your intuitions are correct, there should not be a case where there are a different number of observations for moms in the `FROM` and `TO` columns.  In particular, I noticed:  
+
+1. The example data set, there are 31 sites and they are starting out with a saturated graph (and I may have to point out that I really hate the coding style Jeffrey and Melanie use...).
+
+2. On this data set, there are 31 sites and the whole thing has 31 * 30 = `r 30 * 31` rows.  If you take the data set and sort it by FROM, there are 30 rows for each site with all the connections (think a view of connections FROM a particular site).  And if you sort from TO, there are exactly 30 rows for each connection as well.  So if there are 30 edges from a node as FROM, there are 30 edges from a node if it acts as TO.  
+
+3. This means that the FROM and TO columns are identical in nature **but** one is just sorted by FROM and the other is sorted as TO.  Here are the rows in the `data.frame` for the first two locations showing that the individual value estimated for `length` is represented twice.
+
+<center>![First 2 Connections](./PairsOfEdges.png)</center>
+
+&nbsp;
+
+4. This means for us that each edge should be represented in both directions, meaning that while we have `r length(E(graph))` as *bidirectional*, we'll need to have have `r numEdges * 2` rows to have both direction represented.
+
+```{r}
+raw_data %>%
+  mutate( from.to = paste( FROM, TO, sep="-" )) -> df_forward 
+
+raw_data %>%
+  mutate( from.to = paste( TO, FROM, sep="-" )) -> df_reverse
+
+df <- rbind( df_forward, df_reverse)
+```
+
+5. So if we look at this now, we can see that we have a pair of rows for each edge in the system.
+
+```{r}
+df[ df$from.to %in% c("361PWP-358PWP", "358PWP-361PWP"),]
+```
+
+
+
 
 

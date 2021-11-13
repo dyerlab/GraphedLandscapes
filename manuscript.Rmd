@@ -71,7 +71,6 @@ In this manuscript we describe a genetic algorithm approach for model selection 
 ## Genetic Algorithms
 
 A genetic algorithm is based upon biological fitness and natural selection.  Key components of a model can be encoded into a pseudo-chromosome and treated as a single representation of a model.  A large population of these model specifications may be iterated across generations.  At each generation, both mutation occurs (e.g., changing of the parameters along the individual chromosome) and crossing over (e.g., exchanging portions of a chromosome with another individual) produce offspring.  At each generation, relative fitness is evaluated based upon an objective fitness function providing differential reproductive success of individual chromosomes.  Across generations, both mutation and recombination allow the breadth of the search space to be examined concurrently without the potential for getting trapped at localized optima.  
-
 Here we are going to define the 
 
 ## Simulation Results
