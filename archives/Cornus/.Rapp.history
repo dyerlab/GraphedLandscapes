@@ -1,6 +1,0 @@
-load("/Users/rodney/Documents/Research/Data/Dogwood/Cornus/Cornus.data.rda")
-ls()
-summary(cornus.data)
-ls()
-class(Graph)
-plot.gm

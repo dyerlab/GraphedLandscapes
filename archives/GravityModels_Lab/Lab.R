@@ -12,7 +12,7 @@ require(spatialEco)
 require(GeNetIt)
 #data for exercise 
 data(dps) 
-data(ralu.site) 
+data(ralu.site)  
 data(rasters)
 # Coerce #SpatialPixelsDataFrame to #raster stack 
 xvars <- stack(rasters[-6]) 
@@ -25,25 +25,16 @@ plot( xvars )
 
 ralu.site@data <- data.frame(ralu.site@data, extract(xvars[[c(1,2)]], ralu.site))
 head(ralu.site@data)
-View( ralu.site@data )
 
 dist.graph <- knn.graph(ralu.site, row.names = ralu.site@data[,"SiteName"])
 dist.graph@data$from.to <- paste(dist.graph$i, dist.graph$j, sep=".") 
 dps$from.to <- paste(dps$FROM_SITE, dps$TO_SITE, sep=".") 
 dist.graph <- merge(dist.graph, dps, by = "from.to")
 
-View( dist.graph@data )
 dim( dist.graph@data )
-
 dist.graph@data <- dist.graph@data[,-c(7,8)]
-
-
 dim( dist.graph@data )
-View( dist.graph@data )
 
-
-
-dist.graph@data[ dist.graph@data$from.to %in% c("1.2","2.1"), ]
 
 # Some other crap
 
