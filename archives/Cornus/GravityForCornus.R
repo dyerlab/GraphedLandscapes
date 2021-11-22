@@ -99,14 +99,42 @@ lme.sum <- function(mod){
 
 load("cornus.offs.rda")
 
+co <- attr(cornus.off, "values")
+
+df <- data.frame( ID = co$ID,
+                  Mom = co$Mom, 
+                  X = co$X,
+                  Y = co$Y,
+                  PctSky = co$PctSky,
+                  Clumping = co$Clumping, 
+                  DBH = co$DBH, 
+                  FloralOutput = co$FloralOutput ) 
+
+# Remake the loci in the new geneticStudio framework
+
+for (locus in c("Cf.G8", "Cf.H18", "Cf.N10", "Cf.05") ) { 
+  x <- c()
+  loc <- co[[locus]]
+  for( item in loc ) { 
+    vals <- attr(item, "alleles")
+    x <- c( x, locus( vals ) )
+  }
+  class( x ) <- "locus"
+  df[[locus]] <- x 
+}
+
+
+summary( df )
+
 #  Saturated Graph
-cornus.off$Mom <- as.factor( cornus.off$Mom )
-freqs <- lapply( partition( cornus.off, stratum="Mom"), allele.frequencies ) 
-sdist <- stratum.distance( cornus.off, stratum="Mom", lat="X", lon="Y" )
-K <- length( levels( cornus.off$Mom ) )
+df$Mom <- as.factor(df$Mom )
+freqs <- lapply( partition( df, stratum="Mom"), frequencies )
+coords <- strata_coordinates( df, stratum="Mom", longitude="X", latitude="Y")
+sdist <- strata_distance( coords )
+K <- length( levels( df$Mom ) )
 N <- K*(K-1)
-GDist <- rep(NA,N)
-PDist <- rep(NA,N)
+GDist <- dist_bray(df, stratum="Mom")
+PDist <- sdist
 Graph <- rep(FALSE,N)
 DBH <- rep(NA,N)
 Flowers <- rep(NA,N)
@@ -115,9 +143,9 @@ Clumping <- rep(NA,N)
 momFrom <- rep(NA,N)
 momTO <- rep(NA,N)
 ID <- rep(NA,N)
-momNums <- as.numeric(levels( cornus.off$Mom ))
-offspring.graph <- population.graph(cornus.off,stratum="Mom")
-graph.adj <- get.adjacency(offspring.graph)
+momNums <- as.numeric(levels( df$Mom ))
+offspring.graph <- population_graph(df,stratum="Mom")
+graph.adj <- igraph::as_adjacency_matrix( offspring.graph )
 
 ctr <- 1
 for(i in 1:K){
@@ -125,8 +153,6 @@ for(i in 1:K){
   for(j in 1:K){
     if( i != j ) {
       freq2 <- freqs[[j]]
-      GDist[ctr] <- braycurtis(freq1,freq2)
-      PDist[ctr] <- sdist[i,j]
       if( graph.adj[i,j])
         Graph[ctr] <- TRUE
       momFrom[ctr] <- momNums[j]
@@ -135,7 +161,7 @@ for(i in 1:K){
         ID[ctr] <-  paste(momNums[i],momNums[j], sep="-")
       else
         ID[ctr] <-  paste(momNums[j],momNums[i], sep="-")
-        
+      
       ctr <- ctr+1
     }
   }
@@ -144,13 +170,14 @@ for(i in 1:K){
 
 
 # Fill out saturated graph
-data <- data.frame( GDist=GDist/2, PDist=PDist, 
-                    Grouping=as.factor( rep( levels(cornus.off$Mom ), each=16) ),
+data <- data.frame( GDist=GDist[lower.tri( GDist)]/2, 
+                    PDist=PDist[lower.tri( PDist)], 
+                    Grouping=as.factor( rep( levels(df$Mom ), each=16) ),
                     FROM=as.factor(momFrom), TO=as.factor(momTO), ID, InGraph=Graph )
-data$DBH <- log( rep( cornus.off$DBH[ cornus.off$ID==1 ], each=16 ))
-data$PctSky <- log( rep( cornus.off$PctSky[ cornus.off$ID==1 ], each=16 ))
-data$Clumping <- log( rep( cornus.off$Clumping[ cornus.off$ID==1 ], each=16 ))
-data$FloralOutput <- log( rep( cornus.off$FloralOutput[ cornus.off$ID==1 ], each=16 ))
+data$DBH <- log( rep( df$DBH[ df$ID==1 ], each=16 ))
+data$PctSky <- log( rep( df$PctSky[ df$ID==1 ], each=16 ))
+data$Clumping <- log( rep( df$Clumping[ df$ID==1 ], each=16 ))
+data$FloralOutput <- log( rep( df$FloralOutput[ df$ID==1 ], each=16 ))
 data$FloralOutput[ is.na(data$FloralOutput) ] <- 4.40564
 
 # single terms saturated

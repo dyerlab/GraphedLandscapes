@@ -75,6 +75,188 @@ df <- rbind( df_forward, df_reverse)
 df[ df$from.to %in% c("361PWP-358PWP", "358PWP-361PWP"),]
 ```
 
+## Setting Up a Stepwise Approach
+
+So as a first pass, let's step through an analysis using the more traditional step-wise approach using a simple correlation of unexplained variation approach.  In essence, I will:
+
+1. Find the variable that is most highly correlated with the raw data.
+2. Fit the new model containing these data.
+3. Extract various qualitative values from the data (AIC, R^2, P)
+4. Determine the residuals
+5. Identify the remaining variable that is most correlated with the residuals.
+6. GoTo #2 until such time that AIC stops going down and things start going up.
+
+For this, I have a simple gravity function that does the analysis and spits back some output.
+
+
+```{r}
+gravity <- function(y, x, group, data, ln=TRUE, constrained=TRUE) {
+  if (!require(nlme)) stop("nlme PACKAGE MISSING")
+  if (!require(lattice)) stop("lattice PACKAGE MISSING")
+  gdata <- data[,c(group,y,x)] 
+
+  if(ln==TRUE) { 
+    gdata[,x] <- log(abs(gdata[,x]))
+    gdata[,y] <- log(abs(gdata[,y]))
+    gdata[gdata == -Inf] <- 0 
+    gdata[gdata == Inf] <- 0  		
+  } 		   		
+  fmla <- as.formula(paste(paste(y, "~", sep="") , paste(x, collapse= "+")))       
+  if (constrained == FALSE) { 
+    print("Running unconstrained model, defaulting to OLS. Please check assumptions")
+    gvlmm <- lm(fmla, data=gdata)
+    gvaic <- AIC(gvlmm)
+    return( list(formula=fmla, GravityModel=gvlmm, Summary=summary(gvlmm), 
+                 AIC=gvaic, x=gdata[,x], y=gdata[,y]) )  	  	  
+  } else {
+    gvlmm <- lme(fmla, random = ~1 | group, data=gdata)
+    gvaic <- AIC(gvlmm)
+    return( list(formula=fmla, GravityModel=gvlmm, Summary=summary(gvlmm), 
+                 AIC=gvaic, x=gdata[,x], y=gdata[,y], groups=gdata[,group]) )  	  
+  }
+}	
+```
+
+
+And here are some helper functions that will aid in saving features of the models we get. There is one tricky bit of work that we need to do regarding dropping the values that may be considered going forward.  As a simple heuristic, once we identify feature `X` as being informative for its particiualr combination of either radial distance (for at-site features) or all the other levels for between-site features (movement model, pixel size, etc.), we need a way to easily make the rest unavailable.  I'm going to create a simple function that returns the related column names based upon the one that is fit.  It is a bit wonky and relies completely upon your existing naming convention, but as long as you are consistent, it should work.
+
+```{r}
+lme.sum <- function(mod){
+  res <- data.frame(
+    "Beta" = summary(mod)$coefficients$fixed,
+    "Lower.CI" = summary(mod)$coefficients$fixed - 1.96*sqrt(diag(mod$varFix)),
+    "Upper.CI" = summary(mod)$coefficients$fixed + 1.96*sqrt(diag(mod$varFix)),
+    "P.value" = 2 * pt(-abs(summary(mod)$coefficients$fixed/sqrt(diag(mod$varFix))), 
+                             summary(mod)$fixDF[[1]])
+  )
+  return(res)
+}
+
+find.r2 <- function( lme.object ){
+  yhat <- predict( lme.object )
+  obs <- lme.object$data$cGD
+  f <- lm( obs ~ yhat )
+  summary(f)$adj
+}
+
+get_formula <- function( lme.object ) { 
+  return(Reduce( paste, deparse( lme.object  )) )
+}
+
+colsToDrop <- function( toDrop, names ) {
+  prefix <- paste( str_split_fixed(toDrop, "_", 3)[1,1:2], collapse ="_")
+  groupToDrop <- theNames[ str_sub( theNames, 1, str_length(prefix))  == prefix ]
+  return( groupToDrop )
+}
+
+```
+
+Now let's run through the data.  
+
+```{r}
+# drop the non numeric and missing daa 
+
+df %>% select( -c(FROM, TO, from.to, as_grass_5_F, as_grass_10_F, as_height_F, as_basal_area_F) ) -> data
+
+group <- as.factor( df$FROM )
+
+```
+
+I'm going to step through this manually to get things going.
+
+```{r}
+
+correlations <- cov2cor(var( data, na.rm=TRUE))[1,2:ncol(data)]
+idx <- which( abs( correlations ) == max( abs(correlations), na.rm=TRUE))
+predictors <- names(idx)
+
+# drop the
+for( col in colsToDrop( predictors, names(data )) ) {
+  data[[col]] <- NULL
+}
+print(paste( "First predictor:", predictors) ) 
+fit <- gravity( y="cGD", x = predictors, group="FROM", data=df )
+
+output <- data.frame( model = get_formula( fit$formula ),
+                      AIC = fit$AIC, 
+                      R2 = find.r2(fit$GravityModel ) ) 
+
+```
+
+Now, one at a time, I am going to walk through the remaining data columns and do the same thing by finding residuals, identifying the most highly correlated value with them, fitting a model and adding it to the output table.
+
+```{r}
+
+data$cGD <- residuals( fit$GravityModel )
+correlations <- cov2cor(var( data, na.rm=TRUE))[1,2:ncol(data)]
+idx <- which( abs( correlations ) == max( abs(correlations), na.rm=TRUE))
+nextVar <- names(data)[idx]
+predictors <- c( predictors, nextVar )
+for( col in colsToDrop( predictors, names(data )) ) {
+  data[[col]] <- NULL
+}
+fit <- gravity( y="cGD", x = predictors, group="FROM", data=df )
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

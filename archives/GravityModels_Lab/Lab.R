@@ -28,7 +28,9 @@ head(ralu.site@data)
 
 dist.graph <- knn.graph(ralu.site, row.names = ralu.site@data[,"SiteName"])
 dist.graph@data$from.to <- paste(dist.graph$i, dist.graph$j, sep=".") 
+
 dps$from.to <- paste(dps$FROM_SITE, dps$TO_SITE, sep=".") 
+
 dist.graph <- merge(dist.graph, dps, by = "from.to")
 
 dim( dist.graph@data )
