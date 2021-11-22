@@ -6,7 +6,7 @@ output: html_notebook
 This notebook is designed to help in setting up what I call a "GraphedLandscape", e.g., one in which we overlay topologies onto so that we can examine if intervening (between site) or localized (at site) variables are contributing to the observed distribution of genetic variation we see as represented as a Population Graph.
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set( echo = FALSE )
+knitr::opts_chunk$set( echo = TRUE )
 library( igraph )
 library( gstudio )
 library( popgraph  )
@@ -143,9 +143,12 @@ get_formula <- function( lme.object ) {
   return(Reduce( paste, deparse( lme.object  )) )
 }
 
-colsToDrop <- function( toDrop, names ) {
+colsToDrop <- function( toDrop, theNames ) {
   prefix <- paste( str_split_fixed(toDrop, "_", 3)[1,1:2], collapse ="_")
   groupToDrop <- theNames[ str_sub( theNames, 1, str_length(prefix))  == prefix ]
+  if( length(groupToDrop) == 0  ) {
+    groupToDrop <- toDrop
+  }
   return( groupToDrop )
 }
 
@@ -174,13 +177,14 @@ predictors <- names(idx)
 for( col in colsToDrop( predictors, names(data )) ) {
   data[[col]] <- NULL
 }
-print(paste( "First predictor:", predictors) ) 
 fit <- gravity( y="cGD", x = predictors, group="FROM", data=df )
 
+models <- fit 
 output <- data.frame( model = get_formula( fit$formula ),
                       AIC = fit$AIC, 
+                      BIC = summary( fit$GravityModel )$BIC,
                       R2 = find.r2(fit$GravityModel ) ) 
-
+output
 ```
 
 Now, one at a time, I am going to walk through the remaining data columns and do the same thing by finding residuals, identifying the most highly correlated value with them, fitting a model and adding it to the output table.
@@ -192,12 +196,18 @@ correlations <- cov2cor(var( data, na.rm=TRUE))[1,2:ncol(data)]
 idx <- which( abs( correlations ) == max( abs(correlations), na.rm=TRUE))
 nextVar <- names(data)[idx]
 predictors <- c( predictors, nextVar )
-for( col in colsToDrop( predictors, names(data )) ) {
+for( col in colsToDrop( nextVar, names(data )) ) {
   data[[col]] <- NULL
 }
 fit <- gravity( y="cGD", x = predictors, group="FROM", data=df )
-
-
+output <- rbind( output,
+                 data.frame(model = get_formula( fit$formula ),
+                            AIC = fit$AIC, 
+                            BIC = summary( fit$GravityModel )$BIC,
+                            R2 = find.r2(fit$GravityModel ) 
+                            )
+                 )
+output
 ```
 
 
