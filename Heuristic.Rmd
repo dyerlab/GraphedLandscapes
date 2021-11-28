@@ -297,7 +297,7 @@ First, we must make sure that the order of the mothers is the same in both frequ
 X <- freqs[,2:ncol(freqs)]
 Y <- df.atsite[, 2:ncol(df.atsite)]
 fit <- cancor(Y,X)
-fit
+
 ```
  
  
